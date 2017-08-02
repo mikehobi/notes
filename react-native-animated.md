@@ -214,6 +214,9 @@ class MyComponent extends React.Component {
       this.animatedValue.setValue(1)
     }
   }
+  // or...
+
+  this.animatedValue = new Animated.Value(this.props.isVisible ? 1 : 0)
 
 }
 ```
@@ -400,86 +403,6 @@ keep animations in parallel
   }
 ```
 
-### Declarative Animations within components
-
-Hidden navbar w/ fixed height
-
-initialize within `constructor()`
-
-```jsx
-class HidingNavBar extends React.Component {
-
-  animatedValue = new Animated.Value(0)
-  animatedTranslateY = null
-
-  constructor(props) {
-    super(props)
-
-    this.animatedValue.setValue(props.isVisible ? 1 : 0)
-
-    this.animatedTranslateY = createSimpleInterpolation(this.animatedValue, -props.height, 0)
-
-    const animatedStyle = {
-      transform: [{translateY: this.animatedTranslateY}],
-    }
-
-    this.state = {
-      animatedStyle,
-    }
-  }
-
-  showAnimation = Animated.timing(this.animatedValue, {
-    toValue: 1,
-    duration: 400,
-    useNativeDriver: true,
-  })
-
-  hideAnimation = Animated.timing(this.animatedValue, {
-    toValue: 0,
-    duration: 400,
-    useNativeDriver: true,
-  })
-
-  componentWillUpdate(nextProps) {
-    if (nextProps.isVisible !== this.props.isVisible) {
-      this.animateVisibility(nextProps.isVisible)
-    }
-  }
-
-  animateVisibility(isVisible) {
-    if (isVisible) {
-      this.hideAnimation.start()
-    }
-    else {
-      this.showAnimation.start()
-    }
-  }
-
-  render() {
-    <Animated.View
-      onLayout={this.handleLayout}
-      style={[styles.boxStyle, this.state.animatedStyle]}
-    />
-  }
-}
-```
-
-Now we can declaratively hide or show our `HiddenNavBar` component:
-
-```jsx
-class Parent extends React.Component {
-  render() {
-    return(
-      <HiddenNavBar
-        // hide it...
-        isVisible={false}
-        // or control w/ state
-        isVisible={this.state.isNavBarVisible}
-      />
-    )
-  }
-}
-```
 
 ### animation helper functions?
 
@@ -519,6 +442,65 @@ class MyComponent extends React.Component {
 
   animate() {
     this.anotherOtherAnimation.start()
+  }
+}
+```
+
+### Declarative Animations within components
+
+Hidden navbar w/ fixed height... using all of our goodies
+
+initialize within `constructor()`
+
+```jsx
+class HidingNavBar extends React.Component {
+
+  animatedValue = new Animated.Value(this.props.isVisible ? 1 : 0)
+  animatedTranslateY = createSimpleInterpolation(this.animatedValue, -this.props.height, 0)
+
+  animatedStyle = {
+    transform: [{translateY: this.animatedTranslateY}],
+  }
+
+  showAnimation = createAnimation(this.animatedValue, 1)
+  hideAnimation = createAnimation(this.animatedValue, 0)
+
+  componentWillUpdate(nextProps) {
+    if (nextProps.isVisible !== this.props.isVisible) {
+      this.animateVisibility(nextProps.isVisible)
+    }
+  }
+
+  animateVisibility(isVisible) {
+    if (isVisible) {
+      this.showAnimation.start()
+    }
+    else {
+      this.hideAnimation.start()
+    }
+  }
+
+  render() {
+    <Animated.View
+      style={[styles.boxStyle, this.animatedStyle]}
+    />
+  }
+}
+```
+
+Now we can declaratively hide or show our `HiddenNavBar` component:
+
+```jsx
+class Parent extends React.Component {
+  render() {
+    return(
+      <HiddenNavBar
+        // hide it...
+        isVisible={false}
+        // or control w/ state or props
+        isVisible={this.state.isNavBarVisible}
+      />
+    )
   }
 }
 ```
