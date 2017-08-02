@@ -146,29 +146,20 @@ class MyComponent extends React.Component {
 
 How can you create interpolations based on changing values if you're not creating them in the render?
 
-Answer: `constructor()`
-
 ```js
 
 class MyComponent extends React.Component {
+  // ...
 
-  constructor(props) {
-    super(props)
-    this.createInterpolations(props)
-  }
+  myInterpolation = this.animatedValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: [this.props.offsetY, 0],
+  })
 
-  createInterpolations(props) {
-    // interpolated value that starts from an 'offsetY' value and goes to 0
-    this.myInterpolation = this.animatedValue.interpolate({
-      inputRange: [0, 1],
-      outputRange: [props.offsetY, 0],
-    })
+  // or
+  this.myInterpolation = createSimpleInterpolation(this.animatedValue, this.props.offsetY, 0)
 
-    // or
-    this.myInterpolation = createSimpleInterpolation(this.animatedValue, props.offsetY, 0)
-  }
-
-  myInterpolation = null
+  // ...
 }
 
 ```
@@ -185,7 +176,7 @@ class HidingNavBar extends React.Component {
 
   animatedValue = new Animated.Value(0)
 
-  animatedTranslateY = createSimpleInterpolation(this.animatedValue, -999, 0) // default value, needed?
+  animatedTranslateY = createSimpleInterpolation(this.animatedValue, -999, 0) // default value... not really needed...
 
   handleLayout(event) {
     const { height } = event.nativeEvent.layout
