@@ -1,10 +1,10 @@
 # Tips for React Native Animated
 
-I've been working with React Native's Animated components for about a year, and I have a few things to share that help my workflow.
+I've been working with React Native's Animated components for almost two years, and I have a few things to share that have helped my workflow.
 
 The documentation for Animated can be found here: https://facebook.github.io/react-native/docs/animated.html
 
-This provides you with the basic API that is provided, but I would like to go more in-depth and propose a few patterns that I find to be helpful.
+This provides details about the basic API, but I would like to go more in-depth and propose a few patterns that I find to be helpful.
 
 ## The Animated.Value
 
@@ -23,11 +23,11 @@ For the examples in this article I will store the values in an instance variable
 
 Interpolations are the next step when building an Animation. They allow you to take a range of `0 => 1` and translate that to pixel values like `0px => 100px`, degree values like `0deg => 90deg` and color values like `'tomato' => 'blanchedalmond'`.
 
-In *most* cases, it is ideal to keep your `inputRange` to be equal to `0 => 1`. This helps with interpolating multiple values and allows for consistency when composing Animations.
+In *most* cases, it is ideal to keep your `inputRange` to be equal to `0 => 1`. This helps with interpolating multiple values and allows for consistency when composing animations.
 
 For example if I want to translate something 123 pixels on the x-axis, I could just animate my value from `0` to `123`, but then adding additional animated interpolations would have to use an `inputRange` of `[0, 123]`. It's better to just have a clean `inputRange` and have a more flexible `outputRange`.
 
-```
+```js
 translateX = this.animatedValue.interpolate({
   inputRange: [0, 1],
   outputRange: [0, 123],
@@ -183,20 +183,20 @@ This is great for simple interpolations, but for more complex `inputRange`s we c
 
 Interpolating with props is easy and is great to allow for more custom animations per scene.
 
-A simple example is if we wanted to translate something based on a dynamic position starting position.
+A simple example is if we wanted to translate something based on a dynamic starting position.
 
 ```js
 class MyComponent extends React.Component {
   //...
 
-  translateY = this.animatedValue.interpolate({
+  animatedTranslateY = this.animatedValue.interpolate({
     inputRange: [0, 1],
     outputRange: [this.props.initialPositionY, 0],
   })
 
   // or using our helper
 
-  translateY = createSimpleInterpolation(this.animatedValue, this.props.initialPositionY, 0)
+  animatedTranslateY = createSimpleInterpolation(this.animatedValue, this.props.initialPositionY, 0)
 
   //...
 }
@@ -209,7 +209,7 @@ The above example allows us to pass an `initialPositionY` prop to our component,
 
 Interpolating based on measurements is a little bit tricky. Unlike a known property that is passed to our component, creating interpolations based on measurements requires more work.
 
-In this example we have a `NavBar` that will "hide" it's self by translating the negative value of it's height, so it moves off-screen.
+In this example we have a `HidingNavBar` that will "hide" itself by translating the negative value of it's height, so it moves off-screen.
 
 We measure the height by using the `onLayout` prop. And deconstructing `height` from `event.nativeEvent.layout` within our `handleLayout()` function.
 
@@ -249,7 +249,7 @@ class HidingNavBar extends React.Component {
 ```
 In this case, we are putting `animatedStyle` in `state` to ensure that our component re-renders with our new interpolation that uses the `height` measurement.
 
-One thing to note here is that `onLayout` could fire multiple times. In that case we should store the initial `height` measurement and compare it against the new `height` measurment on any subsequence layout call:
+One thing to note here is that `onLayout` could fire multiple times. In that case we should store the initial `height` measurement and compare it against the new `height` measurement on any subsequent layout call:
 
 ```jsx
 class HidingNavBar extends React.Component {
@@ -257,8 +257,9 @@ class HidingNavBar extends React.Component {
   handleLayout(event) {
     const { height } = event.nativeEvent.layout
 
+    // if the layout height is equal to the height in our state,
+    // we can return and prevent unnecessary setState calls and reassignment of variables
     if (height === this.state.height) {
-      // prevent unnecessary setState call and reassignment of variables
       return
     }
 
@@ -302,9 +303,9 @@ class MyComponent extends React.Component {
 
 ## Animating
 
-The last layer of our cake is the running our Animations.
+Last, but not least, we need to run the actual animations.
 
-Animated provides three types: `decay()`, `timing()` and `spring()`. They are used by passing the AnimatedValue that you want to manipulate and passing a variety of config options:
+Animated provides three types of animations: `decay()`, `timing()` and `spring()`. These functions accept two parameters; the `AnimatedValue` we are manipulations, and an config object:
 
 ```jsx
 Animated.timing(this.animatedValue, {
@@ -316,7 +317,7 @@ Animated.timing(this.animatedValue, {
 })
 ```
 
-There are many config options that I won't go into.
+These are a couple of configurable options for `timing()`, `spring()` and `decay()` have some different options.
 
 ### Naming and reusing animations
 
@@ -341,7 +342,7 @@ class MyComponent extends React.Component {
 }
 ```
 
-Awesome, note how `.start()` is used to trigger our Animation. If you don't call this, it won't animate, which means that we can store this timing animation in an instance variable.
+Note how `.start()` is used to trigger our animation. If you don't call this, it won't animate, which means that we can store this timing animation in an instance variable.
 
 ```js
 class MyComponent extends React.Component {
@@ -364,7 +365,7 @@ class MyComponent extends React.Component {
 }
 ```
 
-Just like we did with interpolations and styles, we can store and reference this animation in our component, and we are not recreating animations unnecessarily.
+Just like we did with interpolations and styles, we can store and reference this animation in our class, which prevents us from recreating animations unnecessarily.
 
 Additionally we can make the inverse of this animation with a `fadeOutAnimation`
 
@@ -382,9 +383,9 @@ class MyComponent extends React.Component {
 
 ### Parellel, Sequential, and Staggered Animations
 
-In a lot of cases, our components will potentially have more than 1 AnimatedValue, and we will need to animate them at different times. We can use `Animated.parallel`, `Animated.sequence` and `Animated.stagger` to animate them together.
+In a lot of cases, our components will potentially have more than one `AnimatedValue`, and we will needq to animate them at different times, durations or with different easing curves. We can use `Animated.parallel`, `Animated.sequence` and `Animated.stagger` to fire these animations in conjunction.
 
-In this example we have `blueBoxAnimatedValue` and `orangeBoxAnimatedValue`, both values will affect two different Views.
+In the example below we have `blueBoxAnimatedValue` and `orangeBoxAnimatedValue`, both values will affect a different `View`.
 
 This is what it will look like if we want to start both animations at the same time:
 
@@ -469,12 +470,11 @@ We can also do this with `sequence()` and `stagger()`:
   }
 ```
 
-Great. So now imagine we're making a component that will only animate the `orangeBox` if the prop of `shouldAnimateOrange` has a value of true.
+Great. So now imagine we're making a component that will only animate the `orangeBox` if the prop of `shouldAnimateOrange` has a value of `true`.
 
-This can be achieved by doing this:
+This *can* be achieved by doing this:
 
 ```jsx
-  // no!
   animateBoxes() {
     this.blueBoxAnimation.start()
     if (this.props.shouldAnimateOrange) {
@@ -486,7 +486,6 @@ This can be achieved by doing this:
 But if we want to keep the animations in parallel we can create an array of `parallelAnimations` and conditionally push whatever animations are needed.
 
 ```jsx
-  // yes!
   animateBoxes() {
     const parallelAnimations = [this.blueBoxAnimation]
 
@@ -504,7 +503,7 @@ Again, this can also be applied to `sequence()` and `stagger()`
 
 Similar to the interpolation helper function, you can have a set of `Animated.timing` or `.spring` functions that will help you keep consistency in your animations.
 
-Let's set up two functions that we will hypothetically use throughout our app:
+Let's set up two functions that we will hypothetically use throughout the entirety our app:
 
 ```jsx
 function createTimingAnimation(animatedValue, toValue) {
@@ -550,13 +549,15 @@ class MyComponent extends React.Component {
 
 ### Declarative Animated Components
 
-Now let's create a declarative component. One that will animate based on the properties that our passed to it.
+Now let's create a declaratively animated component. One that will animate based on the properties that are passed to it.
 
 The key is to fire our animations on `componentWillUpdate()`
 
-In this example we have a `prop` of `isVisible`, that will determine whether or no we should show or hide our component by translating it appropriately.
+In this example we have a `prop` of `isVisible`, which will determine whether or not we should show or hide our component by translating it on and off the screen appropriately.
 
-First let's create setup our AnimatedValue with a default value that is determine by `this.props.isVisible`
+First let's setup our `AnimatedValue` with a default value that is determined by `this.props.isVisible`
+
+In this case an animated value of `0` is hidden, and `1` is visible.
 
 ```jsx
 class HidingNavBar extends React.Component {
@@ -602,7 +603,7 @@ Within `componentWillUpdate`, we will need to make sure that the current `this.p
   }
 ```
 
-Then we can create another function that will determine whether we will fire a `showAnimation` or a `hideAnimation`
+Then we can create another function that will determine whether we will fire a `showAnimation` or a `hideAnimation` based on the value of `nextProps.isVisible`
 
 ```js
   componentWillUpdate(nextProps) {
@@ -664,7 +665,7 @@ class HidingNavBar extends React.Component {
 }
 ```
 
-And now we can declaratively hide or show our `HiddenNavBar` component inside of our parent component:
+And now we can declaratively animate our `HiddenNavBar` component inside of our parent component:
 
 ```jsx
 class Parent extends React.Component {
