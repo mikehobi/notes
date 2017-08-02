@@ -15,7 +15,6 @@ This provides details about the basic API, but I would like to go more in-depth 
   - [Simplify interpolations with a helper function](#simplify-interpolations-with-a-helper-function)
   - [Interpolating with props](#interpolating-with-props)
   - [Interpolations based on measurements](#interpolations-based-on-measurements)
-  - [Interpolations based on measurements](#interpolations-based-on-measurements)
 - [Animating](#animating)
   - [Naming and reusing animations](#naming-and-reusing-animations)
   - [Parellel, Sequential, and Staggered Animations](#parellel-sequential-and-staggered-animations)
