@@ -6,7 +6,24 @@ The documentation for Animated can be found here: https://facebook.github.io/rea
 
 This provides details about the basic API, but I would like to go more in-depth and propose a few patterns that I find to be helpful.
 
-## The Animated.Value
+### Contents
+- [The AnimatedValue](#the-animatedvalue)
+  - [Default AnimatedValue based on props](#default-animatedvalue-based-on-props)
+- [Interpolations](#interpolations)
+  - [Move interpolations out of the `render()`](#move-interpolations-out-of-the-render)
+  - [Move animated styles out of the `render()`](#move-animated-styles-out-of-the-render)
+  - [Simplify interpolations with a helper function](#simplify-interpolations-with-a-helper-function)
+  - [Interpolating with props](#interpolating-with-props)
+  - [Interpolations based on measurements](#interpolations-based-on-measurements)
+  - [Interpolations based on measurements](#interpolations-based-on-measurements)
+- [Animating](#animating)
+  - [Naming and reusing animations](#naming-and-reusing-animations)
+  - [Parellel, Sequential, and Staggered Animations](#parellel-sequential-and-staggered-animations)
+  - [Keeping conditional animations in parellel](#keeping-conditional-animations-in-parellel)
+  - [Animation helper functions](#animation-helper-functions)
+  - [Declarative Animated Components](#declarative-animated-components)
+
+## The AnimatedValue
 
 ```js
 animatedValue = new Animated.Value(0)
@@ -18,6 +35,29 @@ You can use whatever style you like, but I prefer not to store Animated values w
 
 For the examples in this article I will store the values in an instance variable instead.
 
+### Default AnimatedValue based on props
+
+If we want to create a flexible component that is animated based on props, we can default our initial values like so:
+
+```jsx
+class MyComponent extends React.Component {
+
+  animatedValue = new Animated.Value(0)
+
+  constructor(props) {
+    super(props)
+    if (props.isVisible) {
+      this.animatedValue.setValue(1)
+    }
+  }
+
+  // or...
+
+  animatedValue = new Animated.Value(this.props.isVisible ? 1 : 0)
+
+  //...
+}
+```
 
 ## Interpolations
 
@@ -36,7 +76,7 @@ translateX = this.animatedValue.interpolate({
 
 An exception to this case is when interpolating values based on ScrollView's scroll value and PanResponder's X & Y values.
 
-### Move Interpolations out of the `render()`
+### Move interpolations out of the `render()`
 
 In many basic examples, it's common to see interpolations being created within the `render()`, like so:
 
@@ -107,7 +147,7 @@ class MyComponent extends React.Component {
 
 👍
 
-### Move animated style objects into the Class
+### Move animated styles out of the `render()`
 
 We can also apply this same perf-minded thinking to our styles, and create an `animatedStyle` within our class as well:
 
@@ -145,7 +185,7 @@ class MyComponent extends React.Component {
 
 Our render function is looking slimmer than ever.
 
-### Simplify Interpolations with a helper
+### Simplify interpolations with a helper function
 
 If we stick to our guns, and stick with the `0 => 1` input range rule. We can simplify our interpolation code by creating a helper function that accepts an `AnimatedValue`, a starting `outputA` value, and an ending `outputB` value. Let's call it `createSimpleInterpolation()`. We can also store this in a `utils` file.
 
@@ -272,31 +312,6 @@ class HidingNavBar extends React.Component {
     // Store height in state
     this.setState({ animatedStyle, height })
   }
-  //...
-}
-```
-
-
-### Default AnimatedValue based on props
-
-If we want to create a flexible component that is animated based on props, we can default our initial values like so:
-
-```jsx
-class MyComponent extends React.Component {
-
-  animatedValue = new Animated.Value(0)
-
-  constructor(props) {
-    super(props)
-    if (props.isVisible) {
-      this.animatedValue.setValue(1)
-    }
-  }
-
-  // or...
-
-  animatedValue = new Animated.Value(this.props.isVisible ? 1 : 0)
-
   //...
 }
 ```
@@ -470,13 +485,16 @@ We can also do this with `sequence()` and `stagger()`:
   }
 ```
 
-Great. So now imagine we're making a component that will only animate the `orangeBox` if the prop of `shouldAnimateOrange` has a value of `true`.
+### Keeping conditional animations in parellel
+
+Great, now imagine we're making a component that will only animate the `orangeBox` if the prop of `shouldAnimateOrange` has a value of `true`.
 
 This *can* be achieved by doing this:
 
 ```jsx
   animateBoxes() {
     this.blueBoxAnimation.start()
+
     if (this.props.shouldAnimateOrange) {
       this.orangeBoxAnimation.start()
     }
