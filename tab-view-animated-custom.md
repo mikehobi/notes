@@ -370,7 +370,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   header: {
-    marginTop: 20, // statusbar
+    marginTop: 20,
     height: 60,
     flexDirection: 'row',
     alignItems: 'center',
@@ -474,7 +474,7 @@ class TabHeader extends React.Component {
       (route) => {
         // return a text color interpolation into array
         return this.positionAnimatedValue.interpolate({
-          inputRange: [tabIndex - 1, tabIndex, tabIndex + 1],
+          inputRange: [route.tabIndex - 1, route.tabIndex, route.tabIndex + 1],
           outputRange: ['#CCC', '#000', '#CCC'],
           extrapolate: 'clamp',
         })
@@ -485,7 +485,7 @@ class TabHeader extends React.Component {
 }
 ```
 
-Awesome. A neat trick here is that we only need to interpolate between the tab's siblings and the current tab: `[tabIndex - 1, tabIndex, tabIndex + 1]` or `[previousTab, currentTab, nextTab]`
+Awesome. A neat trick here is that we only need to interpolate between the tab's siblings and the current tab: `[route.tabIndex - 1, route.tabIndex, route.tabIndex + 1]` or `[previousTab, currentTab, nextTab]`
 
 Now all we need to do is pass down the appropriate interpolation to each `TabLink`
 
@@ -633,7 +633,7 @@ class TabHeader extends React.Component {
     this.tabTextColorInterpolations = routes.map(
       (route) => {
         return this.positionAnimatedValue.interpolate({
-          inputRange: [tabIndex - 1, tabIndex, tabIndex + 1],
+          inputRange: [route.tabIndex - 1, route.tabIndex, route.tabIndex + 1],
           outputRange: ['#CCC', '#000', '#CCC'],
           extrapolate: 'clamp',
         })
@@ -706,7 +706,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   header: {
-    height: 80,
+    marginTop: 20,
+    height: 60,
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -715,3 +716,601 @@ const styles = StyleSheet.create({
   },
 })
 ```
+
+Snack link: [...]
+
+Awesome. Now let's take it another step further and build an indicator bar. But rather than just a set-width indicator bar, let's add one that changes sizes based on our `TabLink` widths.
+
+In order to achieve this affect we are going to measure the `width` and `x` position of each `TabLink`. We will use these measurements to create an interpolation on our indicator. So when our `position` value changes, the `x` position of our indicator will move to the appropriate `TabLink` and the `width` will be the same `width` of the current `TabLink`.
+
+For the sake of this example, let's change our route labels to varying strings sizes.
+
+```jsx
+export default class MyTabView extends React.Component {
+  //...
+  state = {
+    index: 0,
+    routes: [
+      { tabIndex: 0, key: '0', label: `Tab #1` },
+      { tabIndex: 1, key: '1', label: `Wide Tab #2` },
+      { tabIndex: 2, key: '2', label: `#3` },
+      { tabIndex: 3, key: '3', label: `Really Wide Tab #4` },
+    ],
+  }
+  //...
+}
+```
+
+Before we get into the measurements, let's add an `Animated.View` that will act as our indicator. You can give it any style you want, in this example it will be full-height and rendered behind the text labels.
+
+```jsx
+class TabHeader extends React.Component {
+  //...
+  state = {
+    tabIndicatorAnimatedStyle: null,
+  }
+  //...
+  render() {
+    return (
+      <View
+        style={styles.header}
+      >
+
+        <Animated.View
+          style={[
+            styles.tabIndicator,
+            this.state.tabIndicatorAnimatedStyle,
+          ]}
+        />
+
+        {this.props.routes && this.props.routes.map(
+          (route) => (
+            <TabLink
+              key={route.key}
+              index={route.tabIndex}
+              label={route.label}
+              isActive={route.tabIndex === this.props.index}
+              textColor={this.tabTextColorInterpolations[route.tabIndex]}
+              onPress={this.handleTabPress}
+            />
+          )
+        )}
+
+      </View>
+    )
+  }
+}
+
+const styles = StyleSheet.create({
+  //...
+  tabIndicator: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    height: '100%',
+    backgroundColor: 'tomato',
+  },
+  //...
+})
+```
+
+Sweet. Notice `tabIndicatorAnimatedStyle` in our state. After we finish measuring the tabs, we will store the `translateX` and `width` interpolations here.
+
+```jsx
+class TabHeader extends React.Component {
+  //...
+  render() {
+    return (
+      <View
+        style={styles.header}
+      >
+
+        <Animated.View
+          style={[
+            styles.tabIndicator,
+            this.state.tabIndicatorAnimatedStyle,
+          ]}
+        />
+
+        {this.props.routes && this.props.routes.map(
+          (route) => (
+            <TabLink
+              key={route.key}
+              index={route.tabIndex}
+              label={route.label}
+              isActive={route.tabIndex === this.props.index}
+              textColor={this.tabTextColorInterpolations[route.tabIndex]}
+              onPress={this.handleTabPress}
+              // Pass `onLayout` prop:
+              onLayout={this.handleTabLinkLayout}
+            />
+          )
+        )}
+
+      </View>
+    )
+  }
+}
+
+
+class TabLink extends React.PureComponent {
+  @bind
+  handleLayout(event) {
+    // Call onLayout prop with event and also the tab's index.
+    this.props.onLayout(event, this.props.index)
+  }
+  //...
+  render() {
+    return (
+      <TouchableOpacity
+        onPress={this.handlePress}
+        onLayout={this.handleLayout}
+      >
+        <View
+          style={styles.tabContainer}
+        >
+          <Animated.Text
+            style={{ color: this.props.textColor }}
+          >
+            {this.props.label}
+          </Animated.Text>
+        </View>
+      </TouchableOpacity>
+    )
+  }
+}
+```
+
+In `TabHeader`, our `handleTabLinkLayout` event will look like this:
+
+```jsx
+class TabHeader extends React.Component {
+  //...
+  this.tabMeasurements = {}
+
+  @bind
+  handleTabLinkLayout(event, tabIndex) {
+    const { x, width } = event.nativeEvent.layout
+
+    // Store tab measurements in the tabMeasurements object with a key of it's index
+    Object.assign(this.tabMeasurements, {
+      [tabIndex]: {
+        x,
+        width,
+      },
+    })
+
+    // cCmpare the length of our object to the length of our routes
+    const areTabsMeasured = Object.keys(this.tabMeasurements).length === this.props.routes.length
+
+    if (areTabsMeasured && !this.state.tabIndicatorAnimatedStyle) {
+      this.setTabIndicatorInterpolations()
+    }
+  }
+  //...
+}
+```
+
+Each `TabLink` will fire `onLayout` at different times, we take each measurement and store it in an Object called `tabMeasurements`.
+
+On each measurement, we can then compare the length of `tabMeasurements` against the length of `this.props.routes`. When these are equal, we know that we have measurements for each `TabLink` and then we can fire `this.setTabIndicatorInterpolations`.
+
+Our `setTabIndicatorInterpolations` will then take an array of our tab indices and map that to their respective widths and x positions.
+
+```jsx
+class TabHeader extends React.Component {
+  //...
+  @bind
+  setTabIndicatorInterpolations() {
+    // An Array of tab indices, ex. [0, 1, 2, ...]
+    const tabIndices = Object.keys(this.tabMeasurements).map((key) => {
+      return Number(key)
+    })
+
+    // Array of tab x positions, ex. [0, 20, 40, ...]
+    const tabPositions = tabIndices.map((tabIndex) => {
+      return this.tabMeasurements[tabIndex].x
+    })
+
+    // Array of tab widths, ex. [50, 50, 100, ...]
+    const tabWidths = tabIndices.map((tabIndex) => {
+      return this.tabMeasurements[tabIndex].width
+    })
+
+    // Interpolate the `positionAnimatedValue` to each tabs x value  [0, 1, 2, ...] => [0, 20, 40, ...]
+    const tabIndicatorTranslateX = this.positionAnimatedValue.interpolate({
+      inputRange: tabIndices,
+      outputRange: tabPositions,
+    })
+
+    // Interpolate the `positionAnimatedValue` to each tabs width value  [0, 1, 2, ...] => [50, 50, 100, ...]
+    const tabIndicatorWidth = this.positionAnimatedValue.interpolate({
+      inputRange: tabIndices,
+      outputRange: tabWidths,
+    })
+
+    // Create our Animated style
+    const tabIndicatorAnimatedStyle = {
+      width: tabIndicatorWidth,
+      transform: [{ translateX: tabIndicatorTranslateX }],
+    }
+
+    // Set state to rerender our tab indicator with new styles
+    this.setState({ tabIndicatorAnimatedStyle })
+  }
+  //...
+}
+```
+
+And that's it!
+
+Now when we run our app. We'll see our indicator bar follow the active tabs based on the `position` value.
+
+```jsx
+
+import React from 'react'
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Animated,
+} from 'react-native'
+import { bind } from 'decko'
+import { TabViewAnimated } from 'react-native-tab-view'
+
+export default class MyTabView extends React.Component {
+
+  state = {
+    index: 0,
+    routes: [
+      { tabIndex: 0, key: '0', label: `Tab #1` },
+      { tabIndex: 1, key: '1', label: `Wide Tab #2` },
+      { tabIndex: 2, key: '2', label: `#3` },
+      { tabIndex: 3, key: '3', label: `Really Wide Tab #4` },
+    ],
+  }
+
+  @bind
+  renderHeader(props) {
+    return (
+      <TabHeader
+        routes={props.navigationState.routes}
+        index={props.navigationState.index}
+        jumpToIndex={props.jumpToIndex}
+        subscribe={props.subscribe}
+      />
+    )
+  }
+
+  @bind
+  renderScene(props) {
+    return (
+      <View
+        style={styles.scene}
+      >
+        <Text>{`Hi I'm ${props.route.label}`}</Text>
+      </View>
+    )
+  }
+
+  @bind
+  handleChangeTab(index) {
+    this.setState({ index })
+  }
+
+  render() {
+    return (
+      <TabViewAnimated
+        navigationState={this.state}
+        renderHeader={this.renderHeader}
+        renderScene={this.renderScene}
+        onRequestChangeTab={this.handleChangeTab}
+      />
+    )
+  }
+}
+
+class TabHeader extends React.Component {
+
+  constructor(props) {
+    super(props)
+    this.createAnimatedTabInterpolations(props.routes)
+  }
+
+  state = {
+    tabIndicatorAnimatedStyle: null,
+  }
+
+  componentDidMount() {
+    this.props.subscribe('position', this.handlePositionChange)
+  }
+
+  positionAnimatedValue = new Animated.Value(0)
+  tabMeasurements = {}
+
+  @bind
+  createAnimatedTabInterpolations(routes) {
+    this.tabTextColorInterpolations = routes.map(
+      (route) => {
+        return this.positionAnimatedValue.interpolate({
+          inputRange: [route.tabIndex - 1, route.tabIndex, route.tabIndex + 1],
+          outputRange: ['#CCC', '#000', '#CCC'],
+          extrapolate: 'clamp',
+        })
+      }
+    )
+  }
+
+  @bind
+  handlePositionChange(position) {
+    this.positionAnimatedValue.setValue(position)
+  }
+
+  @bind
+  handleTabPress(index) {
+    this.props.jumpToIndex(index)
+  }
+
+  @bind
+  handleTabLinkLayout(event, tabIndex) {
+    const { x, width } = event.nativeEvent.layout
+
+    Object.assign(this.tabMeasurements, {
+      [tabIndex]: {
+        x,
+        width,
+      },
+    })
+
+    const areTabsMeasured = Object.keys(this.tabMeasurements).length === this.props.routes.length
+
+    if (areTabsMeasured && !this.state.tabIndicatorAnimatedStyle) {
+      this.setTabIndicatorInterpolations()
+    }
+  }
+
+  @bind
+  setTabIndicatorInterpolations() {
+    const tabIndices = Object.keys(this.tabMeasurements).map((key) => {
+      return Number(key)
+    })
+
+    const tabPositions = tabIndices.map((tabIndex) => {
+      return this.tabMeasurements[tabIndex].x
+    })
+
+    const tabWidths = tabIndices.map((tabIndex) => {
+      return this.tabMeasurements[tabIndex].width
+    })
+
+    const tabIndicatorTranslateX = this.positionAnimatedValue.interpolate({
+      inputRange: tabIndices,
+      outputRange: tabPositions,
+    })
+
+    const tabIndicatorWidth = this.positionAnimatedValue.interpolate({
+      inputRange: tabIndices,
+      outputRange: tabWidths,
+    })
+
+    const tabIndicatorAnimatedStyle = {
+      width: tabIndicatorWidth,
+      transform: [{ translateX: tabIndicatorTranslateX }],
+    }
+
+    this.setState({ tabIndicatorAnimatedStyle })
+  }
+
+  render() {
+    return (
+      <View
+        style={styles.header}
+      >
+
+        <Animated.View
+          style={[
+            styles.tabIndicator,
+            this.state.tabIndicatorAnimatedStyle,
+          ]}
+        />
+
+        {this.props.routes && this.props.routes.map(
+          (route) => (
+            <TabLink
+              key={route.key}
+              index={route.tabIndex}
+              label={route.label}
+              isActive={route.tabIndex === this.props.index}
+              textColor={this.tabTextColorInterpolations[route.tabIndex]}
+              onPress={this.handleTabPress}
+              onLayout={this.handleTabLinkLayout}
+            />
+          )
+        )}
+
+      </View>
+    )
+  }
+}
+
+class TabLink extends React.PureComponent {
+
+  @bind
+  handlePress() {
+    this.props.onPress(this.props.index)
+  }
+
+  @bind
+  handleLayout(event) {
+    this.props.onLayout(event, this.props.index)
+  }
+
+  render() {
+    return (
+      <TouchableOpacity
+        onPress={this.handlePress}
+        onLayout={this.handleLayout}
+      >
+        <View
+          style={styles.tabContainer}
+        >
+          <Animated.Text
+            style={{ color: this.props.textColor }}
+          >
+            {this.props.label}
+          </Animated.Text>
+        </View>
+      </TouchableOpacity>
+    )
+  }
+}
+
+
+const styles = StyleSheet.create({
+  scene: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  header: {
+    marginTop: 20,
+    height: 60,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  tabContainer: {
+    marginHorizontal: 8,
+    backgroundColor: 'transparent',
+  },
+  tabIndicator: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    height: '100%',
+    backgroundColor: 'tomato',
+  },
+})
+```
+
+Alright awesome. Now let's get into styling and add in just 1 more interpolation. And that will be `backgroundColor`.
+
+First off, let's update our routes in `MyTabView` and also update our `renderScene` function.
+
+```jsx
+
+export default class MyTabView extends React.Component {
+  //...
+  state = {
+    index: 0,
+    routes: [
+      { tabIndex: 0, key: '0', label: `Tab #1`, backgroundColor: '#A7B4CA' },
+      { tabIndex: 1, key: '1', label: `Wide Tab #2`, backgroundColor: '#DBA09B' },
+      { tabIndex: 2, key: '2', label: `#3`, backgroundColor: '#E7DF93' },
+      { tabIndex: 3, key: '3', label: `Really Wide Tab #4`, backgroundColor: '#9FDCB0' },
+    ],
+  }
+  //...
+  @bind
+  renderScene(props) {
+    return (
+      <View
+        style={[
+          styles.scene,
+          {
+            backgroundColor: props.route.backgroundColor,
+          },
+        ]}
+      >
+        <Text>{`Hi I'm ${props.route.label}`}</Text>
+      </View>
+    )
+  }
+  //...
+}
+```
+
+I've chosen four colors for each scene and added them to the scene's View style.
+
+Now let's update our tab indictor interpolation to also change color.
+
+```jsx
+class TabHeader extends React.Component {
+  //...
+  @bind
+  setTabIndicatorInterpolations() {
+    const tabIndices = Object.keys(this.tabMeasurements).map((key) => {
+      return Number(key)
+    })
+
+    const tabPositions = tabIndices.map((tabIndex) => {
+      return this.tabMeasurements[tabIndex].x
+    })
+
+    const tabWidths = tabIndices.map((tabIndex) => {
+      return this.tabMeasurements[tabIndex].width
+    })
+
+    // New Array that maps over routes and puts the backgroundColor's within an array
+    const tabColors = this.props.routes.map((route) => {
+      return route.backgroundColor
+    })
+
+    const tabIndicatorTranslateX = this.positionAnimatedValue.interpolate({
+      inputRange: tabIndices,
+      outputRange: tabPositions,
+    })
+
+    const tabIndicatorWidth = this.positionAnimatedValue.interpolate({
+      inputRange: tabIndices,
+      outputRange: tabWidths,
+    })
+
+    // Interpolate those values just like we did with translateX and width
+    const tabIndicatorBackgroundColor = this.positionAnimatedValue.interpolate({
+      inputRange: tabIndices,
+      outputRange: tabColors,
+    })
+
+    const tabIndicatorAnimatedStyle = {
+      width: tabIndicatorWidth,
+      transform: [{ translateX: tabIndicatorTranslateX }],
+      // Add this interpolation to our animated style
+      backgroundColor: tabIndicatorBackgroundColor,
+    }
+
+    this.setState({ tabIndicatorAnimatedStyle })
+  }
+  //...
+}
+```
+Awesome. That's all we need to get the background color to animate on `position` change.
+
+Now add just a little more style:
+
+```jsx
+const styles = StyleSheet.create({
+  //...
+  header: {
+    marginTop: 20,
+    paddingHorizontal: 8,
+    backgroundColor: '#fff',
+    height: 60,
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+  },
+  //...
+  tabIndicator: {
+    position: 'absolute',
+    left: 0,
+    top: 8,
+    bottom: 8,
+    borderRadius: 8,
+  },
+})
+```
+
+And bam, you've got a nice looking `TabViewAnimated`
+
